@@ -220,4 +220,154 @@ EOF
 chmod 755 config/includes.chroot/usr/local/bin/turaja-watchdog.sh
 
 # 11. Menu Admin Tersembunyi (Ctrl + Alt + Shift + T)
-cat << 'EOF' > config/includes.
+cat << 'EOF' > config/includes.chroot/usr/local/bin/turaja-admin.sh
+#!/bin/bash
+PASS=$(zenity --password --title="Turaja OS - Admin Access")
+if [ "$PASS" != "turaja123" ]; then
+    zenity --error --text="Password salah!"
+    exit 1
+fi
+
+AKSI=$(zenity --list --title="Turaja OS Maintenance" \
+    --column="Opsi" --column="Keterangan" \
+    "URL" "Ubah Nama Instansi & Link Absensi" \
+    "FLUSH" "Bersihkan Cache & Restart Browser" \
+    "REBOOT" "Mulai Ulang Sistem" \
+    "POWEROFF" "Matikan Sistem Sekarang" \
+    "TERMINAL" "Buka Terminal Pemeliharaan")
+
+case $AKSI in
+    "URL")
+        rm -f /home/turaja/.turaja_config
+        killall chromium
+        ;;
+    "FLUSH")
+        killall chromium
+        rm -rf /home/turaja/.cache/chromium/*
+        ;;
+    "REBOOT")
+        reboot
+        ;;
+    "POWEROFF")
+        poweroff
+        ;;
+    "TERMINAL")
+        x-terminal-emulator || xterm
+        ;;
+esac
+EOF
+chmod 755 config/includes.chroot/usr/local/bin/turaja-admin.sh
+
+# 12. Launcher Kiosk Utama
+cat << 'EOF' > config/includes.chroot/usr/local/bin/turaja-kiosk.sh
+#!/bin/bash
+CONFIG_FILE="/home/turaja/.turaja_config"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    DATA=$(zenity --forms --title="Turaja OS Setup" \
+        --text="Konfigurasi Awal Sistem Absensi\nPowered By PT. Turaja Teknologi Indonesia" \
+        --add-entry="Nama Instansi" \
+        --add-entry="Link / URL Web Absensi" \
+        --separator="|")
+
+    if [ $? -ne 0 ] || [ -z "$DATA" ]; then
+        INSTANSI="Instansi Default"
+        URL_ABSEN="https://google.com"
+    else
+        INSTANSI=$(echo "$DATA" | cut -d'|' -f1)
+        URL_ABSEN=$(echo "$DATA" | cut -d'|' -f2)
+    fi
+
+    echo "INSTANSI=\"$INSTANSI\"" > "$CONFIG_FILE"
+    echo "URL_ABSEN=\"$URL_ABSEN\"" >> "$CONFIG_FILE"
+fi
+
+source "$CONFIG_FILE"
+
+feh --bg-color '#0b0f19' &
+unclutter -idle 3 -root &
+dunst &
+tint2 &
+nm-applet &
+/usr/local/bin/turaja-netmon.sh &
+/usr/local/bin/turaja-watchdog.sh &
+
+exec chromium \
+    --app="$URL_ABSEN" \
+    --start-maximized \
+    --no-first-run \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-session-crashed-bubble \
+    --autoplay-policy=no-user-gesture-required \
+    --use-fake-ui-for-media-stream \
+    --disk-cache-size=104857600
+EOF
+chmod 755 config/includes.chroot/usr/local/bin/turaja-kiosk.sh
+
+# 13. Autostart Openbox & Hotkey Binding
+cat << 'EOF' > config/includes.chroot/etc/skel/.config/openbox/autostart
+/usr/local/bin/turaja-kiosk.sh &
+EOF
+
+cat << 'EOF' > config/includes.chroot/etc/skel/.config/openbox/rc.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <keyboard>
+    <keybind key="C-A-S-t">
+      <action name="Execute">
+        <command>/usr/local/bin/turaja-admin.sh</command>
+      </action>
+    </keybind>
+  </keyboard>
+</openbox_config>
+EOF
+
+# ------------------------------------------------------------------------------
+# HOOK: Hak Akses, Firewall, User
+# ------------------------------------------------------------------------------
+mkdir -p config/hooks/live
+cat << 'EOF' > config/hooks/live/01-finalize-turaja.chroot
+#!/bin/sh
+set -e
+
+ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+
+if id "turaja" >/dev/null 2>&1; then
+    usermod -a -G video,audio,netdev,dialout turaja
+else
+    useradd -m -s /bin/bash -G video,audio,netdev,dialout turaja
+    echo "turaja:turaja" | chpasswd
+fi
+
+cp -r /etc/skel/. /home/turaja/
+chown -R turaja:turaja /home/turaja
+
+# HARDENING: Firewall UFW
+ufw default deny incoming
+ufw default allow outgoing
+ufw allow out 53/udp
+ufw allow out 80/tcp
+ufw allow out 443/tcp
+ufw allow out 123/udp
+systemctl enable ufw
+
+systemctl enable NetworkManager
+systemctl enable systemd-timesyncd
+systemctl enable cron
+systemctl enable zramswap
+EOF
+chmod 755 config/hooks/live/01-finalize-turaja.chroot
+
+echo "=== [4/5] Memulai kompilasi ISO... ==="
+lb build
+
+echo "=== [5/5] Menyimpan file ISO hasil build ==="
+FINAL_ISO_NAME="TurajaOS-Debian12-x86_64.iso"
+mv TurajaOS-Debian12-x86_64.hybrid.iso "$OUTPUT_DIR/$FINAL_ISO_NAME"
+chmod 664 "$OUTPUT_DIR/$FINAL_ISO_NAME"
+
+echo "=================================================================="
+echo "SUKSES! Berkas ISO siap pakai tersimpan di:"
+echo "$OUTPUT_DIR/$FINAL_ISO_NAME"
+echo "=================================================================="
