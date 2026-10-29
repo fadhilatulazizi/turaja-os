@@ -31,7 +31,9 @@ lb config \
     --distribution bookworm \
     --mirror-bootstrap "http://deb.debian.org/debian/" \
     --mirror-chroot "http://deb.debian.org/debian/" \
+    --mirror-chroot-security "http://deb.debian.org/debian-security/" \
     --mirror-binary "http://deb.debian.org/debian/" \
+    --mirror-binary-security "http://deb.debian.org/debian-security/" \
     --archive-areas "main contrib non-free non-free-firmware" \
     --architectures amd64 \
     --linux-flavours amd64 \
