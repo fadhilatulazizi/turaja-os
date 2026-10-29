@@ -328,7 +328,7 @@ EOF
 # ------------------------------------------------------------------------------
 mkdir -p config/hooks/live
 cat << 'EOF' > config/hooks/live/01-finalize-turaja.chroot
-#!/bin/sh
+#!/sh
 set -e
 
 ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
