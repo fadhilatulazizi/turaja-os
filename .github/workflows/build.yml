@@ -1,7 +1,7 @@
-name: Build Turaja OS ISO
+name: Build TurajaOS ISO
 
 on:
-  workflow_dispatch: # Mengaktifkan tombol "Run workflow" manual
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -13,20 +13,29 @@ jobs:
       - name: Checkout Repositori
         uses: actions/checkout@v4
 
-      - name: Pasang Dependensi Kompilasi ISO
+      - name: Pasang Dependensi Kompilasi & Keyring Debian
         run: |
           sudo apt-get update
-          sudo apt-get install -y live-build debootstrap isolinux syslinux-efi \
-            grub-pc-bin grub-efi-amd64-bin mtools dosfstools squashfs-tools
+          sudo apt-get install -y \
+            live-build \
+            debootstrap \
+            isolinux \
+            syslinux-efi \
+            grub-pc-bin \
+            grub-efi-amd64-bin \
+            mtools \
+            dosfstools \
+            squashfs-tools \
+            debian-archive-keyring
 
       - name: Eksekusi Skrip Builder
         run: |
           chmod +x build_turaja_ready.sh
           sudo ./build_turaja_ready.sh
 
-      - name: Upload Hasil ISO ke Artifacts
+      - name: Upload Berkas ISO ke Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: TurajaOS-Installer
+          name: TurajaOS-Debian12-Installer
           path: /tmp/output_iso/*.iso
           retention-days: 7
