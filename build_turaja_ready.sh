@@ -29,15 +29,11 @@ lb config \
     --architectures amd64 \
     --linux-flavours amd64 \
     --binary-images iso-hybrid \
-    --bootloader syslinux \
-    --debian-installer live \
-    --debian-installer-gui true \
+    --bootloader syslinux,grub-efi \
     --bootappend-live "boot=live components quiet splash username=turaja hostname=turaja-kiosk autologin" \
-    --image-name "TurajaOS-Debian12-x86_64" \
     --iso-application "Turaja OS Kiosk" \
     --iso-publisher "PT. Turaja Teknologi Indonesia" \
     --iso-volume "TURAJA_OS"
-
 # ------------------------------------------------------------------------------
 # DAFTAR PAKET MINIMAL (Performa RAM <= 2GB + Kiosk Hardening)
 # ------------------------------------------------------------------------------
@@ -364,10 +360,12 @@ lb build
 
 echo "=== [5/5] Menyimpan file ISO hasil build ==="
 FINAL_ISO_NAME="TurajaOS-Debian12-x86_64.iso"
-mv TurajaOS-Debian12-x86_64.hybrid.iso "$OUTPUT_DIR/$FINAL_ISO_NAME"
-chmod 664 "$OUTPUT_DIR/$FINAL_ISO_NAME"
 
-echo "=================================================================="
-echo "SUKSES! Berkas ISO siap pakai tersimpan di:"
-echo "$OUTPUT_DIR/$FINAL_ISO_NAME"
-echo "=================================================================="
+# Cari file hybrid.iso default yang dihasilkan live-build
+if [ -f "live-image-amd64.hybrid.iso" ]; then
+    mv live-image-amd64.hybrid.iso "$OUTPUT_DIR/$FINAL_ISO_NAME"
+elif ls *.iso 1> /dev/null 2>&1; then
+    mv *.iso "$OUTPUT_DIR/$FINAL_ISO_NAME"
+fi
+
+chmod 664 "$OUTPUT_DIR/$FINAL_ISO_NAME"
