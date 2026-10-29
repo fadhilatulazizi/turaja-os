@@ -1,4 +1,4 @@
-name: Build TurajaOS ISO
+name: Build Turaja OS ISO
 
 on:
   workflow_dispatch:
@@ -9,33 +9,42 @@ on:
 jobs:
   build-iso:
     runs-on: ubuntu-latest
+    # Menjalankan proses di dalam Debian 12 murni agar 100% kompatibel
+    container:
+      image: debian:bookworm
+      options: --privileged
+
     steps:
       - name: Checkout Repositori
         uses: actions/checkout@v4
 
-      - name: Pasang Dependensi Kompilasi & Keyring Debian
+      - name: Pasang Dependensi Live-Build Debian Murni
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
             live-build \
             debootstrap \
             isolinux \
+            syslinux \
+            syslinux-common \
             syslinux-efi \
             grub-pc-bin \
             grub-efi-amd64-bin \
             mtools \
             dosfstools \
             squashfs-tools \
+            xorriso \
+            cpio \
             debian-archive-keyring
 
       - name: Eksekusi Skrip Builder
         run: |
           chmod +x build_turaja_ready.sh
-          sudo ./build_turaja_ready.sh
+          ./build_turaja_ready.sh
 
       - name: Upload Berkas ISO ke Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: TurajaOS-Debian12-Installer
+          name: TurajaOS-Debian12-ISO
           path: /tmp/output_iso/*.iso
           retention-days: 7
